@@ -20,110 +20,44 @@ python run.py --data-dir /path/to/data --log output/changes.csv
 
 ## How it works
 
-Three steps. Each is one module and can be inspected on its own.
+Four steps, one folder each. Every folder has its own README with the detail and examples.
 
 ```
-tracking.py         observations.py                  state_machine.py          submission.py
------------         ---------------                  ----------------          -------------
+tracking/           observations/                    state_machine/            submission/
+---------           -------------                    --------------            -----------
 ATD files    --->   per frame:                --->   per half:          --->   X outside the
 in metres           controller  H / A / nobody       H / A / D labels          halves, checked
 one row per         dead_cue    True / False         + a log of every          CSV, possession
 video frame                                          change of label           count
 ```
 
-### 1. Tracking (`possession/tracking.py`)
-
-Reads the tactical ATD into arrays: ball position, every track slot's position and speed, and
-which team each slot belongs to. Coordinates are converted from 0-1 units to metres (105.3 x
-68.0). Row *i* is video frame *i*, which is also submission row *i*.
-
-### 2. Observations (`possession/observations.py`)
-
-Reduces each frame to two facts.
-
-**Who controls the ball.** A team controls it when its player is the nearest, within 2 m, the ball
-is moving slower than 7 m/s, and no opponent is about as close. Otherwise nobody does. For example,
-with the ball moving at 3 m/s:
-
-| nearest Barcelona | nearest Athletic | controller |
+| step | folder | in one line |
 |---|---|---|
-| 0.8 m | 4.1 m | `H` |
-| 1.2 m | 1.4 m | nobody: contested |
-| 3.0 m | 5.0 m | nobody: no one close |
-| 0.8 m, ball at 15 m/s | 4.1 m | nobody: a pass in flight |
+| 1 | [`possession/tracking/`](possession/tracking/) | read the tracking files into arrays, in metres, one row per video frame |
+| 2 | [`possession/observations/`](possession/observations/) | for each frame: which team controls the ball, and does it look like a stoppage |
+| 3 | [`possession/state_machine/`](possession/state_machine/) | turn those two facts into one label per frame, backdating every confirmed change |
+| 4 | [`possession/submission/`](possession/submission/) | write the CSV, check it, count the possessions it claims |
+| | [`possession/config/`](possession/config/) | every threshold, with what it means on the pitch |
+| | [`tests/`](tests/) | what is tested, and how to run it |
 
-Short ball gaps (0.5 s or less) are filled by a straight line first. Longer gaps stay missing.
+`run.py` chains the four steps together.
 
-**Does it look like a stoppage.** Yes when the ball is more than 1 m off the pitch, or when the
-players have slowed to an average under 1.5 m/s *and* the ball is missing or not moving.
+### The idea in one example
 
-### 3. The state machine (`possession/state_machine.py`)
-
-```mermaid
-stateDiagram-v2
-  direction LR
-  [*] --> DEAD
-  DEAD --> RESTARTING: no dead-ball cue
-  RESTARTING --> DEAD: cue returns
-  RESTARTING --> POSSESSION: 10 clear frames and a team on the ball
-  POSSESSION --> CHALLENGED: other team controls it
-  CHALLENGED --> POSSESSION: 10 frames of control (turnover)
-  CHALLENGED --> POSSESSION: original team touches it, or 3 s pass (no turnover)
-  POSSESSION --> STOPPING: dead-ball cue
-  CHALLENGED --> STOPPING: dead-ball cue
-  STOPPING --> DEAD: 25 frames of cues
-  STOPPING --> POSSESSION: cues stop
-```
-
-`RESTARTING`, `CHALLENGED` and `STOPPING` are "maybe" states. While in one, the machine keeps
-writing the old label. If the change is confirmed, it rewrites the labels from the frame the
-maybe-state began. If not, nothing is rewritten.
-
-An example, one letter per frame (`h` home controls, `a` away controls, `.` nobody), starting in
-home possession and needing 3 frames of control for a turnover:
+One letter per frame: `h` home controls the ball, `a` away controls it, `.` nobody does (a pass in
+flight, a loose ball, or no ball tracked). A turnover here needs 3 frames of control:
 
 ```
-frame      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
 observed   h h . . a . h h . . a a . a h h
 written    H H H H H H H H H H A A A A A A
-                   ^           ^     ^
-                   |           |     frame 13: third away frame, turnover confirmed
-                   |           frame 10: so A is written from here, away's first touch
-                   frame 4: away touches it once, home gets it back. No change.
 ```
 
-How that maps to the possession rules in the organisers' CHALLENGE.md:
-
-| situation | what the machine does |
-|---|---|
-| pass between teammates | ball in flight is "nobody", the receiver is the same team: no change |
-| loose or contested ball | "nobody" is never evidence for a change: stays with the last team |
-| deflection, touch without control | a short challenge that never reaches 10 frames: no change |
-| interception | 10 frames of control: turnover, starting at the first touch |
-| ball out, foul, set piece | 1 s of stoppage cues: `D`, starting at the first cue |
-| `H D H` | two possessions, as the ranking metric counts them |
-
-### 4. The submission (`possession/submission.py`)
-
-Writes `X` outside the two graded halves (frames 11185-90651 and 110808-190197), checks the file
-against the submission contract and writes it. It also counts the possessions the file claims.
-That count is the first thing to look at. The public 5 minutes have 17 possessions, about 3.4 a
-minute, so a full match should be in the hundreds, not the thousands.
+The first `a` is a deflection: home gets it straight back, so nothing changes. The second time,
+away keeps it for three frames, so the machine switches to `A`, and writes `A` from away's first
+touch rather than from the frame it became sure. The
+[state machine README](possession/state_machine/) walks through this frame by frame.
 
 ---
-
-## Parameters
-
-Every threshold is in `possession/config.py`, in one `Params` object, with a comment saying what
-it means on the pitch. To try a different value:
-
-```python
-from possession.config import Params
-Params(confirm_turnover=20)        # a turnover now needs 0.8 s of control
-```
-
-The values come from football reasoning, not from the ground truth. The rules forbid tuning on the
-public 5 minutes, and the organisers' EVALUATION.md shows it picks the wrong value anyway.
 
 ## Checking the output
 
@@ -131,7 +65,8 @@ public 5 minutes, and the organisers' EVALUATION.md shows it picks the wrong val
 python run.py --log output/changes.csv
 ```
 
-`output/changes.csv` has one row per change of label. These example rows come from a test run on invented data:
+`output/changes.csv` has one row per change of label. These example rows come from a test run on
+invented data:
 
 ```
 confirmed_frame,start_frame,label,reason
@@ -143,6 +78,9 @@ confirmed_frame,start_frame,label,reason
 machine became sure. Open the video at `start_frame` (frame / 25 = seconds) to see whether the
 change is real.
 
+`run.py` also prints how many possessions the file claims. That is the first number to look at:
+the public 5 minutes have 17, about 3.4 a minute, so a full match should be in the hundreds.
+
 Then run the organisers' tools, from a clone of their repository:
 
 ```bash
@@ -152,16 +90,6 @@ python evaluation/run_evaluation.py         # scores files in evaluation/results
 
 The public score is a pipeline check, not a ranking. Seventeen possessions cannot tell two
 versions apart.
-
-## Tests
-
-```bash
-python -m unittest
-```
-
-The tests use hand-written frame sequences and a small invented passage of play. None of them use
-match data, so they run on a fresh clone. `tests/test_state_machine.py` has one test per rule in
-the table above.
 
 ## Known gaps
 
@@ -178,4 +106,5 @@ the table above.
 
 The match data is not in this repository and must never be. `.gitignore` excludes `data/`,
 `cache/` (the parsed tracking) and `output/` (submissions and logs). No labels in this pipeline
-come from a person: every one is produced by the code from the tracking data.
+come from a person: every one is produced by the code from the tracking data. Every threshold was
+set from football reasoning, not by tuning on the public 5 minutes, which the rules forbid.

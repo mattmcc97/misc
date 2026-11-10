@@ -117,9 +117,9 @@ class StoppageTest(Case):
                    "HH H DDD HH H")
 
 
-class DocstringExampleTest(unittest.TestCase):
+class WorkedExampleTest(unittest.TestCase):
     def test_worked_example(self):
-        # The example in state_machine.py's docstring, starting from home possession.
+        # The worked example in possession/state_machine/README.md, starting from home possession.
         machine = PossessionMachine(SMALL)
         machine.state, machine.team = State.POSSESSION, HOME
         controller, dead = frames("hh..a.hh..aa.ahh")

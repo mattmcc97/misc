@@ -1,78 +1,11 @@
 """The possession state machine: per-frame observations in, one H / A / D label per frame out.
 
-It reads the match one frame at a time, the way you would watch it, and keeps track of what state
-play is in. It only changes its mind when the evidence has held for long enough, and when it does,
-it goes back and relabels from the moment the change actually started. That second part,
-backdating, is what stops every hand-over landing late.
+Five states (DEAD, RESTARTING, POSSESSION, CHALLENGED, STOPPING). A change is only accepted once the
+evidence has held for long enough, and is then backdated to the frame it began. README.md in this
+folder has the transition table and a worked example.
 
-The five states
----------------
-    state        label written   meaning
-    -----------  --------------  ----------------------------------------------------------------
-    DEAD         D               the ball is out of play
-    RESTARTING   D for now       dead-ball cues have stopped; waiting to be sure play is live
-    POSSESSION   the team        one team has the ball
-    CHALLENGED   the team        the other team has touched it; waiting to see if they keep it
-    STOPPING     the team        dead-ball cues have started; waiting to be sure play has stopped
-
-RESTARTING, CHALLENGED and STOPPING are "maybe" states. While in one, the machine keeps writing
-the old label. If the change is confirmed, it overwrites everything from the frame the maybe-state
-began. If not, the old labels were right all along and nothing is overwritten.
-
-Transitions
------------
-    DEAD        -> RESTARTING   no dead-ball cue on this frame
-    RESTARTING  -> DEAD         a dead-ball cue comes back before the restart is confirmed
-    RESTARTING  -> POSSESSION   10 clear frames, and some team has controlled the ball
-                                (backdated: possession starts where RESTARTING started)
-    POSSESSION  -> CHALLENGED   the other team controls the ball
-    POSSESSION  -> STOPPING     a dead-ball cue
-    CHALLENGED  -> POSSESSION   the challenger controls it for 10 frames in total: a turnover
-                                (backdated: the new team's possession starts at its first touch)
-    CHALLENGED  -> POSSESSION   the original team touches it again: no turnover, nothing changes
-    CHALLENGED  -> POSSESSION   the challenger has not touched it for 3 s: no turnover
-    CHALLENGED  -> STOPPING     a dead-ball cue
-    STOPPING    -> DEAD         dead-ball cues for 25 frames (backdated: dead from the first cue)
-    STOPPING    -> POSSESSION   the cues stop before that: play carried on
-
-The frame counts are defaults from `config.Params`.
-
-How this follows the possession rules (CHALLENGE.md)
-----------------------------------------------------
-- **A pass between teammates** changes nothing. While the ball travels, nobody controls it, and
-  when a teammate receives it, it is the same team. The machine never leaves POSSESSION.
-- **A loose or contested ball** stays with the last team, because NOBODY is never evidence for a
-  change.
-- **A touch or deflection without control** is a short CHALLENGED that never reaches 10 frames.
-  It ends when the original team gets the ball back, or after 3 s, and leaves no trace.
-- **A dead ball** has no owner: DEAD always writes D.
-
-Worked example
---------------
-One letter per frame. h = home controls, a = away controls, . = nobody. The machine starts in
-home possession, and confirm_turnover=3 to keep it short:
-
-    frame      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
-    observed   h h . . a . h h . . a a . a h h
-    state      P P P P C C P P P P C C C P C C      P = POSSESSION, C = CHALLENGED
-    written    H H H H H H H H H H A A A A A A
-                                   ^     ^
-                                   |     frame 13: the third away frame confirms the turnover
-                                   frame 10: labels are rewritten as A from here
-
-The first 'a' was a deflection: home got the ball straight back, so nothing was rewritten. The
-second challenge reached three away frames, so the possession switches, starting from the frame
-away first touched it. The 'h' after that is now a challenge by home against away.
-
-Usage
------
     machine = PossessionMachine(Params())
     labels = machine.run(controller, dead_cue)        # numpy array of "H", "A", "D"
-    for change in machine.changes:                    # every confirmed transition, for debugging
-        print(change)
-
-Run it once per half. A new machine starts in DEAD, which is right for both halves: each opens
-with a kickoff.
 """
 
 from dataclasses import dataclass, field
@@ -80,7 +13,7 @@ from enum import Enum
 
 import numpy as np
 
-from .config import NOBODY, TEAM_LABEL, Params, other
+from ..config import NOBODY, TEAM_LABEL, Params, other
 
 
 class State(Enum):
@@ -107,7 +40,7 @@ class Change:
 
 @dataclass
 class PossessionMachine:
-    """Feed it frames with `step`, or a whole half with `run`. See the module docstring."""
+    """Feed it frames with `step`, or a whole half with `run`. See README.md in this folder."""
 
     params: Params = field(default_factory=Params)
 

@@ -1,45 +1,10 @@
 """Read the tactical tracking data (ATD) into numpy arrays, in metres, indexed by video frame.
 
-This is the only module that knows the file format. Everything after it works on the `Tracking`
-arrays below, so a change in the export means a change here and nowhere else.
+This is the only module that knows the file format. README.md in this folder describes the format,
+the arrays and the cache.
 
-What you get
-------------
     tracking = load("data")
-    tracking.ball            # (199319, 2)      ball x, y in metres, NaN where not tracked
-    tracking.players         # (199319, 46, 2)  every track slot's x, y in metres, NaN if absent
-    tracking.speed           # (199319, 46)     every slot's speed in m/s, NaN if absent
-    tracking.team_of_slot    # (46,)            HOME (0) or AWAY (1) for each slot
-    tracking.team_names      # ("FC Barcelona", "Athletic Club"), for printing
-
-Row i is video frame i, so row i is also submission row i. The file counts frames from 1, so the
-loader puts the record for frame_id 1 in row 0. That is the whole alignment for the tactical
-recording (DATA.md, "Frame alignment").
-
-The file format
----------------
-Two files, both under <data>/tactical/:
-
-    BAR-ATH_tactical_atd.xml    metadata: the two teams, and which team each track slot is on
-    BAR-ATH_tactical_atd.txt    one line per frame
-
-A line of the text file looks like this (shortened to two slots):
-
-    11186:0.4921,0.5003,1.25;NaN,NaN,NaN:0.5012,0.4998,0.00
-
-    11186                      frame_id, counting from 1
-    0.4921,0.5003,1.25         slot 1: x, y (0-1 units) and speed (m/s)
-    NaN,NaN,NaN                slot 2: not tracked on this frame
-    0.5012,0.4998,0.00         the ball. Only the first two values, x and y, are used
-
-Slots are not players. There are 46 slots for 22 players, and a slot can follow one person, then
-lose them, then pick up someone else. The only thing a slot reliably tells you is its team.
-
-Caching
--------
-Parsing the text file takes a minute or two. The parsed arrays are saved to `cache_dir` the first
-time and reused after that. The cache is derived match data, so it must never be committed; the
-project's .gitignore excludes it.
+    tracking.ball            # (199319, 2) ball x, y in metres, NaN where not tracked
 """
 
 import os
@@ -48,14 +13,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .config import AWAY, HOME, N_FRAMES, PITCH
+from ..config import AWAY, HOME, N_FRAMES, PITCH
 
 STEM = "BAR-ATH_tactical"
 
 
 @dataclass
 class Tracking:
-    """Tracking arrays for the whole video. See the module docstring for shapes."""
+    """Tracking arrays for the whole video. See README.md in this folder for shapes."""
 
     ball: np.ndarray
     players: np.ndarray

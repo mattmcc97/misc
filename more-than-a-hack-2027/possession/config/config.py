@@ -1,26 +1,10 @@
 """Every number the pipeline depends on, in one place.
 
-Two kinds of number live here:
+Facts about the match (frame count, frame rate, pitch size, graded halves) and our own tunable
+parameters (`Params`). README.md in this folder explains each parameter and how they were chosen.
 
-- **Facts about the match**, published by the organisers: frame count, frame rate, pitch size and
-  the two graded halves. These never change.
-- **Parameters**, which are our choices: how close a player must be to "have" the ball, how long a
-  team must hold it before we call it a turnover, and so on. They are collected in `Params` so a
-  run can be described by one object, and so nothing else in the code hides a threshold.
-
-How the parameters were chosen
-------------------------------
-From football, not from the ground truth. Each one has a comment saying what it means in match
-terms. The rules forbid tuning on the public 5 minutes, and EVALUATION.md shows that doing so picks
-the wrong value even on a one-parameter baseline. Look at the data to sanity-check a value (for
-example, a histogram of team speed over the whole match); do not search for the value that scores
-best on the public window.
-
-Example
--------
     from possession.config import Params
-    params = Params()                              # the defaults
-    stricter = Params(confirm_turnover=20)         # a turnover now needs 0.8 s of control
+    params = Params(confirm_turnover=20)       # a turnover now needs 0.8 s of control
 """
 
 from dataclasses import dataclass

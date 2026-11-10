@@ -6,11 +6,11 @@
 
 What it does, in order:
 
-1. Reads the tactical tracking (cached after the first run, see possession/tracking.py).
+1. Reads the tactical tracking (cached after the first run, see possession/tracking/).
 2. Works out, for every frame, which team controls the ball and whether it looks like a stoppage
-   (possession/observations.py).
-3. Runs the state machine over each graded half separately (possession/state_machine.py).
-4. Writes X outside the two halves, checks the file and writes it (possession/submission.py).
+   (possession/observations/).
+3. Runs the state machine over each graded half separately (possession/state_machine/).
+4. Writes X outside the two halves, checks the file and writes it (possession/submission/).
 5. Prints a summary: label counts and how many possessions the file claims.
 
 With `--log changes.csv` it also writes every confirmed change of label, with the frame where the

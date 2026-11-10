@@ -1,31 +1,16 @@
-"""Write the submission file, check it, and summarise what it claims.
+"""Write the submission file, check it, and count the possessions it claims.
 
-The file is a header line and one row per video frame:
+README.md in this folder describes the file format and what the summary numbers mean.
 
-    frame,label
-    0,X
-    ...
-    11185,A
-    11186,A
-    ...
-    199318,X
-
-`check` enforces the same contract as the organisers' validator (SUBMISSION.md): exactly 199319
-rows, frames 0..199318 in order, labels H / A / D / X only. Run the official
-`evaluation/validate_submission.py` as well before uploading. This check exists so a broken file
-fails here, at the end of our own pipeline, instead of at theirs.
-
-`summarise` counts possessions the way the ranking metric defines them: a maximal run of H or of
-A inside one half. It reads only our own labels, never a ground truth, so it is safe to look at as
-often as you like. The useful number is the possession count. The public 5 minutes have 17
-possessions, about 3.4 a minute; a full match that claims 1,000 is splitting possessions.
+    labels = full_match([(11185, first_half), (110808, second_half)])
+    write("output/state_machine.csv", labels)
 """
 
 import os
 
 import numpy as np
 
-from .config import FPS, GRADED_HALVES, N_FRAMES
+from ..config import FPS, GRADED_HALVES, N_FRAMES
 
 VALID_LABELS = {"H", "A", "D", "X"}
 

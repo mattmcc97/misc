@@ -1,52 +1,16 @@
-"""Turn the tracking into two simple facts per frame, which are all the state machine reads.
+"""Reduce each frame of tracking to the two facts the state machine reads.
 
-    controller[t]   which team is controlling the ball on frame t: HOME, AWAY or NOBODY
+    controller[t]   which team controls the ball on frame t: HOME, AWAY or NOBODY
     dead_cue[t]     True if frame t looks like a stoppage
 
-Keeping the machine's inputs this small is deliberate. Each fact can be plotted, checked against
-the video and improved on its own, without touching the possession logic.
-
-Who controls the ball
----------------------
-A team controls the ball on a frame when all of these hold:
-
-1. The ball position is known (tracked, or filled across a gap of at most 0.5 s).
-2. The nearest player is within 2 m of it.
-3. The ball is moving slower than 7 m/s. Faster than that it is a pass or a shot in flight, and
-   the player it happens to fly past is not controlling it.
-4. It is not contested: if both teams have a player within 2 m and their distances differ by less
-   than 0.5 m, nobody controls it.
-
-Example, one frame, ball moving at 3 m/s:
-
-    nearest Barcelona player 0.8 m, nearest Athletic player 4.1 m   -> HOME
-    nearest Barcelona player 1.2 m, nearest Athletic player 1.4 m   -> NOBODY (contested)
-    nearest Barcelona player 3.0 m, nearest Athletic player 5.0 m   -> NOBODY (nobody close)
-    same as the first line, but the ball moves at 15 m/s            -> NOBODY (in flight)
-
-NOBODY is the normal answer for much of the match: passes in flight, loose balls, and the 41% of
-graded frames with no ball. The state machine treats NOBODY as "no new information", so the team
-that had the ball keeps it.
-
-What a stoppage looks like
---------------------------
-A frame is a dead-ball cue when either:
-
-- the ball is more than 1 m past a touchline or goal line, or
-- the players have slowed down (average speed under 1.5 m/s over one second) **and** the ball is
-  either missing or not moving.
-
-The second rule is there because the ball is often not tracked during stoppages. Players walking
-back for a free kick, or standing around for a throw-in, are visible even when the ball is not.
-Neither rule alone decides anything: the state machine only accepts a stoppage once the cue has
-held for a full second.
+README.md in this folder explains the rules behind both, with examples.
 """
 
 from dataclasses import dataclass
 
 import numpy as np
 
-from .config import AWAY, FPS, HOME, NOBODY, PITCH, Params
+from ..config import AWAY, FPS, HOME, NOBODY, PITCH, Params
 
 
 @dataclass
@@ -139,7 +103,7 @@ def nearest_by_team(ball, players, team_of_slot):
 
 
 def controlling_team(nearest_home, nearest_away, speed, params):
-    """HOME, AWAY or NOBODY on every frame, by the four rules in the module docstring.
+    """HOME, AWAY or NOBODY on every frame, by the four rules in README.md, "Who controls the ball".
 
     An unknown ball speed (NaN, e.g. a single isolated sighting) does not rule control out.
     """
